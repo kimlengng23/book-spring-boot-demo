@@ -1,0 +1,7 @@
+target
+.mvn/.m2
+.git
+.idea
+.vscode
+.DS_Store
+*.iml
