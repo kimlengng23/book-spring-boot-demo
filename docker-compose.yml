@@ -1,0 +1,38 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: book-demo-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: demo
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ppassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: book-demo-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: demo
+      DB_USERNAME: root
+      DB_PASSWORD: password
+      STUDENT_PHOTOS_DIR: /app/uploads/student-photos
+    ports:
+      - "8080:8080"
+    volumes:
+      - student-photos:/app/uploads/student-photos
+
+volumes:
+  mysql-data:
+  student-photos:
