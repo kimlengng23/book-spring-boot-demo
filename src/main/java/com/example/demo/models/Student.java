@@ -19,6 +19,7 @@ public class Student {
     private String email;
     private String passwordHash;
     private String passwordSalt;
+    private Boolean isVerified;
     private Boolean isActive;
 
     public Student() {
@@ -31,6 +32,7 @@ public class Student {
         String name, 
         String phone, 
         String email,
+        Boolean isVerified,
         Boolean isActive) {
         this.id = id;
         this.studentNumber = studentNumber;
@@ -38,6 +40,7 @@ public class Student {
         this.name = name;
         this.phone = phone;
         this.email = email;
+        this.isVerified = isVerified;
         this.isActive = isActive;
     }
 
@@ -87,6 +90,14 @@ public class Student {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public Boolean getIsVerified() {
+        return isVerified;
+    }
+
+    public void setIsVerified(Boolean isVerified) {
+        this.isVerified = isVerified;
     }
 
     public Boolean getIsActive() {

@@ -30,6 +30,8 @@ services:
       DB_NAME: BookAppDemo
       DB_USERNAME: root
       DB_PASSWORD: password
+      ACCESS_TOKEN_DAYS: 3
+      REFRESH_TOKEN_DAYS: 7
       STUDENT_PHOTOS_DIR: /app/uploads/student-photos
       RESERVATION_REPORT_SERVICE_URL: http://reservation-report-service:8081
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"

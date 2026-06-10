@@ -2,6 +2,7 @@ package com.example.demo.controllers;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -22,6 +23,7 @@ import com.example.demo.dtos.AuthResponse;
 import com.example.demo.dtos.LoginRequest;
 import com.example.demo.dtos.RefreshTokenRequest;
 import com.example.demo.dtos.RegisterStudentRequest;
+import com.example.demo.exceptions.ValidationException;
 import com.example.demo.models.Student;
 import com.example.demo.services.AuthService;
 import com.example.demo.services.BookService;
@@ -48,8 +50,12 @@ public class StudentController {
         return ResponseEntity.ok(student.get());
     }
     @PostMapping("/register")
-    public Student registerStudent(@RequestBody RegisterStudentRequest registerStudentRequest) {
-        return studentService.registerStudent(registerStudentRequest);
+    public ResponseEntity<?> registerStudent(@RequestBody RegisterStudentRequest registerStudentRequest) {
+        try {
+            return ResponseEntity.ok(studentService.registerStudent(registerStudentRequest));
+        } catch (ValidationException exception) {
+            return ResponseEntity.badRequest().body(validationErrors(exception));
+        }
     }
 
     @PostMapping("/login")
@@ -81,13 +87,23 @@ public class StudentController {
     }
 
     @PutMapping("/update")
-    public ResponseEntity<Student> updateStudent(@RequestAttribute("studentId") Long studentId, @RequestBody Student studentDetails) {
-        if(!Objects.equals(studentId, studentDetails.getId()))
+    public ResponseEntity<?> updateStudent(@RequestAttribute("studentId") Long studentId, @RequestBody Student studentDetails) {
+        if(studentDetails.getId() != null && !Objects.equals(studentId, studentDetails.getId()))
         {
             return ResponseEntity.notFound().build();
         }
-        return studentService.updateStudent(studentDetails)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+
+        studentDetails.setId(studentId);
+        try {
+            return studentService.updateStudent(studentDetails)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+        } catch (ValidationException exception) {
+            return ResponseEntity.badRequest().body(validationErrors(exception));
+        }
+    }
+
+    private Map<String, List<String>> validationErrors(ValidationException exception) {
+        return Map.of("errors", exception.getErrors());
     }
 }

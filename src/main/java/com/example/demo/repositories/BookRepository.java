@@ -151,7 +151,7 @@ public class BookRepository {
         return count == null ? 0 : count;
     }
 
-    public boolean reserveBook(Long studentId, Long bookId) {
+    public Optional<ReservedBook> reserveBook(Long studentId, Long bookId) {
         String sql = """
             INSERT INTO BookReservations (studentId, bookId)
             SELECT ?, ?
@@ -163,11 +163,14 @@ public class BookRepository {
             """;
 
         int insertedRows = jdbcTemplate.update(sql, studentId, bookId, bookId);
+        if (insertedRows <= 0) {
+            return Optional.empty();
+        }
 
-        return insertedRows > 0;
+        return getActiveReservationByStudentIdAndBookId(studentId, bookId);
     }
 
-    public boolean returnBook(Long studentId, Long reservationId) {
+    public Optional<ReservedBook> returnBook(Long studentId, Long reservationId) {
         String sql = """
             UPDATE BookReservations
             SET returnedAt = NOW()
@@ -175,7 +178,77 @@ public class BookRepository {
             """;
 
         int updatedRows = jdbcTemplate.update(sql, reservationId, studentId);
-        return updatedRows > 0;
+        if (updatedRows <= 0) {
+            return Optional.empty();
+        }
+
+        return getReservationById(reservationId);
+    }
+
+    public Optional<ReservedBook> getReservationById(Long reservationId) {
+        String sql = """
+            SELECT
+                br.id AS reservationId,
+                b.id AS bookId,
+                b.title,
+                b.author,
+                b.category,
+                b.description,
+                br.dateCreated,
+                br.returnedAt,
+                DATE_ADD(DATE(br.dateCreated), INTERVAL 14 DAY) AS dueDate,
+                CASE
+                    WHEN CURRENT_DATE BETWEEN
+                        DATE_SUB(DATE_ADD(DATE(br.dateCreated), INTERVAL 14 DAY), INTERVAL 3 DAY)
+                        AND DATE_ADD(DATE(br.dateCreated), INTERVAL 14 DAY)
+                    THEN 'true'
+                    ELSE 'false'
+                END AS nearDueDate
+            FROM BookReservations br
+            JOIN Books b ON b.id = br.bookId
+            WHERE br.id = ? AND b.isActive = TRUE
+            """;
+
+        try {
+            ReservedBook reservation = jdbcTemplate.queryForObject(sql, this::mapRowToReservedBook, reservationId);
+            return Optional.of(reservation);
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<ReservedBook> getActiveReservationByStudentIdAndBookId(Long studentId, Long bookId) {
+        String sql = """
+            SELECT
+                br.id AS reservationId,
+                b.id AS bookId,
+                b.title,
+                b.author,
+                b.category,
+                b.description,
+                br.dateCreated,
+                br.returnedAt,
+                DATE_ADD(DATE(br.dateCreated), INTERVAL 14 DAY) AS dueDate,
+                CASE
+                    WHEN CURRENT_DATE BETWEEN
+                        DATE_SUB(DATE_ADD(DATE(br.dateCreated), INTERVAL 14 DAY), INTERVAL 3 DAY)
+                        AND DATE_ADD(DATE(br.dateCreated), INTERVAL 14 DAY)
+                    THEN 'true'
+                    ELSE 'false'
+                END AS nearDueDate
+            FROM BookReservations br
+            JOIN Books b ON b.id = br.bookId
+            WHERE br.studentId = ? AND br.bookId = ? AND br.returnedAt IS NULL AND b.isActive = TRUE
+            ORDER BY br.id DESC
+            LIMIT 1
+            """;
+
+        try {
+            ReservedBook reservation = jdbcTemplate.queryForObject(sql, this::mapRowToReservedBook, studentId, bookId);
+            return Optional.of(reservation);
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
     }
 
     public List<ReservedBook> getReservedBooksByStudentId(Long studentId) {

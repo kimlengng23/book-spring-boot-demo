@@ -41,6 +41,7 @@ To apply the schema to the running MySQL container:
 
 ```bash
 docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/schema.sql
+docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/books.sql
 ```
 
 To fully reset the database and re-run the schema:
@@ -48,6 +49,7 @@ To fully reset the database and re-run the schema:
 ```bash
 docker exec -i book-demo-mysql mysql -u root -ppassword -e "DROP DATABASE IF EXISTS BookAppDemo;"
 docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/schema.sql
+docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/books.sql
 ```
 
 Warning: dropping the database deletes all existing data.
@@ -59,6 +61,7 @@ Start MySQL first. If using the Docker MySQL container only:
 ```bash
 docker compose up -d mysql
 docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/schema.sql
+docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/books.sql
 ```
 
 Then run the app locally:
@@ -70,6 +73,8 @@ DB_PORT=3307 \
 DB_NAME=BookAppDemo \
 DB_USERNAME=root \
 DB_PASSWORD=password \
+ACCESS_TOKEN_DAYS=3 \
+REFRESH_TOKEN_DAYS=7 \
 STUDENT_PHOTOS_DIR=./uploads/student-photos \
 ./mvnw spring-boot:run
 ```
@@ -137,6 +142,6 @@ docker exec -it book-demo-mysql mysql -u root -ppassword BookAppDemo
 - Student photo uploads are stored in the Docker volume `student-photos`.
 - Uploaded photos are limited to `10MB`.
 - Only JPEG and PNG photo uploads are accepted.
-- Access tokens expire after 15 minutes.
-- Refresh tokens expire after 7 days.
-- Microservice communication demo: `GET /api/book/reservations/report` calls the reservation report service.
+- Access token lifespan is set by `ACCESS_TOKEN_DAYS`; development defaults to 3 days.
+- Refresh token lifespan is set by `REFRESH_TOKEN_DAYS`; development defaults to 7 days.
+- Microservice communication demo: `GET /api/book/get/reservations/report` calls the reservation report service.

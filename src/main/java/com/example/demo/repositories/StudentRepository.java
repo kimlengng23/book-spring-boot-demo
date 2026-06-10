@@ -24,7 +24,7 @@ public class StudentRepository {
 
     public Optional<Student> getStudentById(Long id) {
         String sql = """
-            SELECT id, studentNumber, photoFileName, name, phone, email, isActive
+            SELECT id, studentNumber, photoFileName, name, phone, email, isVerified, isActive
             FROM Students
             WHERE id = ? AND isActive = TRUE
         """;
@@ -37,15 +37,15 @@ public class StudentRepository {
         }
     }
 
-    public Optional<Student> getStudentByEmail(String email) {
+    public Optional<Student> getStudentByNumber(String studentNumber) {
         String sql = """
-            SELECT id, studentNumber, photoFileName, name, phone, email, isActive
+            SELECT id, studentNumber, photoFileName, name, phone, email, isVerified, isActive
             FROM Students
-            WHERE email = ? AND isActive = TRUE
+            WHERE studentNumber = ? AND isActive = TRUE
         """;
 
         try {
-            Student student = jdbcTemplate.queryForObject(sql, this::mapRowToStudent, email.toLowerCase().trim());
+            Student student = jdbcTemplate.queryForObject(sql, this::mapRowToStudent, studentNumber.trim());
             return Optional.of(student);
         } catch (EmptyResultDataAccessException exception) {
             return Optional.empty();
@@ -54,7 +54,7 @@ public class StudentRepository {
 
     public Optional<StudentAuthData> getAuthDataByStudentNumber(String studentNumber) {
         String sql = """
-            SELECT id, passwordHash, passwordSalt
+            SELECT id, studentNumber, passwordHash, passwordSalt
             FROM Students
             WHERE studentNumber = ? AND isActive = TRUE
             """;
@@ -62,6 +62,7 @@ public class StudentRepository {
         try {
             StudentAuthData authData = jdbcTemplate.queryForObject(sql, (resultSet, rowNumber) -> new StudentAuthData(
                 resultSet.getLong("id"),
+                resultSet.getString("studentNumber"),
                 resultSet.getString("passwordHash"),
                 resultSet.getString("passwordSalt")
             ), studentNumber.trim());
@@ -71,10 +72,21 @@ public class StudentRepository {
         }
     }
 
+    public boolean existsStudentByNumber(String studentNumber) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM Students
+            WHERE studentNumber = ?
+            """;
+
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, studentNumber.trim());
+        return count != null && count > 0;
+    }
+
     public Student createStudent(Student student, String passwordHash, String passwordSalt) {
         String sql = """
-            INSERT INTO Students (studentNumber, photoFileName, name, phone, email, passwordHash, passwordSalt, isActive)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO Students (studentNumber, photoFileName, name, phone, email, passwordHash, passwordSalt, isVerified, isActive)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -88,7 +100,8 @@ public class StudentRepository {
             statement.setString(5, student.getEmail().toLowerCase().trim());
             statement.setString(6, passwordHash);
             statement.setString(7, passwordSalt);
-            statement.setBoolean(8, getActiveValue(student.getIsActive()));
+            statement.setBoolean(8, getVerifiedValue(student.getIsVerified()));
+            statement.setBoolean(9, getActiveValue(student.getIsActive()));
             return statement;
         }, keyHolder);
 
@@ -103,13 +116,12 @@ public class StudentRepository {
     public boolean updateStudent(Student student) {
         String sql = """
             UPDATE Students
-            SET photoFileName = ?, name = ?, phone = ?, email = ?, isActive = COALESCE(?, isActive)
+            SET name = ?, phone = ?, email = ?, isActive = COALESCE(?, isActive)
             WHERE id = ? AND isActive = TRUE
             """;
 
         int updatedRows = jdbcTemplate.update(
             sql,
-            student.getPhotoFileName(),
             student.getName(),
             student.getPhone(),
             student.getEmail().toLowerCase().trim(),
@@ -139,8 +151,13 @@ public class StudentRepository {
             resultSet.getString("name"),
             resultSet.getString("phone"),
             resultSet.getString("email"),
+            resultSet.getBoolean("isVerified"),
             resultSet.getBoolean("isActive")
         );
+    }
+
+    private boolean getVerifiedValue(Boolean isVerified) {
+        return isVerified != null && isVerified;
     }
 
     private boolean getActiveValue(Boolean isActive) {

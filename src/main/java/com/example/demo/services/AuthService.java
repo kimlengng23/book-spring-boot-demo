@@ -24,7 +24,7 @@ public class AuthService {
     public Optional<AuthResponse> login(LoginRequest loginRequest) {
         return studentRepository.getAuthDataByStudentNumber(loginRequest.getStudentNumber())
             .filter(authData -> passwordMatches(loginRequest.getPassword(), authData))
-            .map(authData -> tokenService.issueTokens(authData.getStudentId()));
+            .map(authData -> tokenService.issueTokens(authData.getStudentId(), authData.getStudentNumber()));
     }
 
     public Optional<AuthResponse> refreshToken(String refreshToken) {

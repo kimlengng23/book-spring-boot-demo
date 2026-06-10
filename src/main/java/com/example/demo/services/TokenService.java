@@ -23,24 +23,24 @@ public class TokenService {
     private final Duration refreshTokenDuration;
 
     public TokenService(
-        @Value("${app.auth.access-token-minutes}") long accessTokenMinutes,
+        @Value("${app.auth.access-token-days}") long accessTokenDays,
         @Value("${app.auth.refresh-token-days}") long refreshTokenDays
     ) {
-        this.accessTokenDuration = Duration.ofMinutes(accessTokenMinutes);
+        this.accessTokenDuration = Duration.ofDays(accessTokenDays);
         this.refreshTokenDuration = Duration.ofDays(refreshTokenDays);
     }
 
-    public AuthResponse issueTokens(Long studentId) {
+    public AuthResponse issueTokens(Long studentId, String studentNumber) {
         Instant now = Instant.now();
         String accessToken = generateToken();
         String refreshToken = generateToken();
         Instant accessTokenExpiresAt = now.plus(accessTokenDuration);
         Instant refreshTokenExpiresAt = now.plus(refreshTokenDuration);
 
-        accessTokens.put(accessToken, new TokenRecord(studentId, accessTokenExpiresAt));
-        refreshTokens.put(refreshToken, new TokenRecord(studentId, refreshTokenExpiresAt));
+        accessTokens.put(accessToken, new TokenRecord(studentId, studentNumber, accessTokenExpiresAt));
+        refreshTokens.put(refreshToken, new TokenRecord(studentId, studentNumber, refreshTokenExpiresAt));
 
-        return new AuthResponse(studentId, accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt);
+        return new AuthResponse(studentId, studentNumber, accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt);
     }
 
     public Optional<Long> validateAccessToken(String accessToken) {
@@ -48,11 +48,16 @@ public class TokenService {
     }
 
     public Optional<AuthResponse> refreshAccessToken(String refreshToken) {
-        return validateToken(refreshTokens, refreshToken)
-            .map(this::issueTokens);
+        return validateTokenRecord(refreshTokens, refreshToken)
+            .map(tokenRecord -> issueTokens(tokenRecord.studentId(), tokenRecord.studentNumber()));
     }
 
     private Optional<Long> validateToken(Map<String, TokenRecord> tokens, String token) {
+        return validateTokenRecord(tokens, token)
+            .map(TokenRecord::studentId);
+    }
+
+    private Optional<TokenRecord> validateTokenRecord(Map<String, TokenRecord> tokens, String token) {
         TokenRecord tokenRecord = tokens.get(token);
         if (tokenRecord == null) {
             return Optional.empty();
@@ -63,7 +68,7 @@ public class TokenService {
             return Optional.empty();
         }
 
-        return Optional.of(tokenRecord.studentId());
+        return Optional.of(tokenRecord);
     }
 
     private String generateToken() {
@@ -72,6 +77,6 @@ public class TokenService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
     }
 
-    private record TokenRecord(Long studentId, Instant expiresAt) {
+    private record TokenRecord(Long studentId, String studentNumber, Instant expiresAt) {
     }
 }
