@@ -56,7 +56,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         if (path.equals("/api/student/register")
             || path.equals("/api/student/login")
-            || path.equals("/api/student/refresh-token")) {
+            || path.equals("/api/student/refresh/token")) {
             return true;
         }
 

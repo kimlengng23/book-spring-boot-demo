@@ -6,7 +6,7 @@ Spring Boot API for managing students, books, book reservations, authentication,
 
 - Docker Desktop
 - Docker Compose
-- Java 17, only needed if running without Docker
+- Java 17, only needed if running WITHOUT Docker
 - Maven, or use the included Maven wrapper `./mvnw`
 
 ## Run With Docker
@@ -27,12 +27,6 @@ This starts:
 - MySQL username: `root`
 - MySQL password: `password`
 
-Swagger UI:
-
-```text
-http://localhost:8080/swagger-ui.html
-```
-
 ## Initialize Or Reset Database Schema
 
 The app uses `spring.jpa.hibernate.ddl-auto=none`, so tables must exist in MySQL.
@@ -49,7 +43,15 @@ To populate dummy book data in the database (make sure there is the database):
 docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/books.sql
 ```
 
-Warning: dropping the database deletes all existing data.
+Swagger UI:
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+## Kubernetes
+
+This demo is containerized with Docker Compose. Kubernetes deployment is not included yet, but the services are structured so the Spring Boot app, reservation report service, and MySQL database can be deployed as separate Kubernetes workloads.
 
 ## Build And Check
 
