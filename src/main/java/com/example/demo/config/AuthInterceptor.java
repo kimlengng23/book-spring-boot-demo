@@ -3,7 +3,6 @@ package com.example.demo.config;
 import java.io.IOException;
 import java.util.Optional;
 
-import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -51,19 +50,17 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private boolean isPublicApi(HttpServletRequest request) {
         String path = request.getRequestURI();
-        String method = request.getMethod();
-
-        if (HttpMethod.OPTIONS.matches(method)) {
+        if ("OPTIONS".equals(request.getMethod())) {
             return true;
         }
 
-        if (path.equals("/api/students/register")
-            || path.equals("/api/students/login")
-            || path.equals("/api/students/refresh-token")) {
+        if (path.equals("/api/student/register")
+            || path.equals("/api/student/login")
+            || path.equals("/api/student/refresh-token")) {
             return true;
         }
 
-        return HttpMethod.GET.matches(method) && path.matches("/api/books(/\\d+)?");
+        return false;
     }
 
     private Optional<String> getBearerToken(HttpServletRequest request) {
@@ -76,13 +73,8 @@ public class AuthInterceptor implements HandlerInterceptor {
     }
 
     private boolean canAccessStudentResource(String path, Long authenticatedStudentId) {
-        if (path.matches("/api/students/\\d+.*")) {
+        if (path.matches("/api/student/\\d+.*")) {
             Long pathStudentId = Long.valueOf(path.split("/")[3]);
-            return authenticatedStudentId.equals(pathStudentId);
-        }
-
-        if (path.matches("/api/books/\\d+/reserve/\\d+")) {
-            Long pathStudentId = Long.valueOf(path.split("/")[5]);
             return authenticatedStudentId.equals(pathStudentId);
         }
 

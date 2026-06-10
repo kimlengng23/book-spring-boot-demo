@@ -12,8 +12,6 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
-import jakarta.annotation.PostConstruct;
-
 import com.example.demo.models.Book;
 import com.example.demo.models.ReservedBook;
 
@@ -26,49 +24,23 @@ public class BookRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    @PostConstruct
-    public void createTables() {
-        String createBookSql = """
-            CREATE TABLE IF NOT EXISTS book (
-                id BIGINT NOT NULL AUTO_INCREMENT,
-                title VARCHAR(255) NOT NULL,
-                author VARCHAR(255),
-                category VARCHAR(255),
-                description VARCHAR(255),
-                PRIMARY KEY (id)
-            ) ENGINE=InnoDB
-            """;
-        jdbcTemplate.execute(createBookSql);
-
-        String createReservationSql = """
-            CREATE TABLE IF NOT EXISTS book_reservation (
-                id BIGINT NOT NULL AUTO_INCREMENT,
-                student_id BIGINT NOT NULL,
-                book_id BIGINT NOT NULL,
-                reserved_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (id)
-            ) ENGINE=InnoDB
-            """;
-
-        jdbcTemplate.execute(createReservationSql);
-    }
-
-    public List<Book> findAll() {
+    public List<Book> getAllBooks() {
         String sql = """
-            SELECT id, title, author, category, description
-            FROM book
+            SELECT id, title, author, category, description, isActive
+            FROM Books
+            WHERE isActive = TRUE
             ORDER BY id
             """;
 
         return jdbcTemplate.query(sql, this::mapRowToBook);
     }
 
-    public Optional<Book> findById(Long id) {
+    public Optional<Book> getBookById(Long id) {
         String sql = """
-            SELECT id, title, author, category, description
-            FROM book
-            WHERE id = ?
-            """;
+            SELECT id, title, author, category, description, isActive
+            FROM Books
+            WHERE id = ? AND isActive = TRUE
+        """;
 
         try {
             Book book = jdbcTemplate.queryForObject(sql, this::mapRowToBook, id);
@@ -78,10 +50,10 @@ public class BookRepository {
         }
     }
 
-    public Book save(Book book) {
+    public Book createBook(Book book) {
         String sql = """
-            INSERT INTO book (title, author, category, description)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO Books (title, author, category, description, isActive)
+            VALUES (?, ?, ?, ?, ?)
             """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -92,6 +64,7 @@ public class BookRepository {
             statement.setString(2, book.getAuthor());
             statement.setString(3, book.getCategory());
             statement.setString(4, book.getDescription());
+            statement.setBoolean(5, getActiveValue(book.getIsActive()));
             return statement;
         }, keyHolder);
 
@@ -103,11 +76,11 @@ public class BookRepository {
         return book;
     }
 
-    public boolean update(Long id, Book book) {
+    public boolean updateBook(Book book) {
         String sql = """
-            UPDATE book
-            SET title = ?, author = ?, category = ?, description = ?
-            WHERE id = ?
+            UPDATE Books
+            SET title = ?, author = ?, category = ?, description = ?, isActive = COALESCE(?, isActive)
+            WHERE id = ? AND isActive = TRUE
             """;
 
         int updatedRows = jdbcTemplate.update(
@@ -116,123 +89,121 @@ public class BookRepository {
             book.getAuthor(),
             book.getCategory(),
             book.getDescription(),
-            id
+            book.getIsActive(),
+            book.getId()
         );
 
         return updatedRows > 0;
     }
 
-    public boolean deleteById(Long id) {
+    public boolean deleteBookById(Long id) {
         String sql = """
-            DELETE FROM book
-            WHERE id = ?
+            UPDATE Books
+            SET isActive = FALSE
+            WHERE id = ? AND isActive = TRUE
             """;
 
-        int deletedRows = jdbcTemplate.update(sql, id);
-        return deletedRows > 0;
+        int updatedRows = jdbcTemplate.update(sql, id);
+        return updatedRows > 0;
     }
 
     public boolean existsBookById(Long bookId) {
         String sql = """
             SELECT COUNT(*)
-            FROM book
-            WHERE id = ?
+            FROM Books
+            WHERE id = ? AND isActive = TRUE
             """;
-
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class, bookId);
         return count != null && count > 0;
     }
 
+    
     public boolean existsStudentById(Long studentId) {
         String sql = """
             SELECT COUNT(*)
-            FROM student
-            WHERE id = ?
+            FROM Students
+            WHERE id = ? AND isActive = TRUE
             """;
 
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class, studentId);
         return count != null && count > 0;
     }
 
-    public Optional<ReservedBook> reserveBook(Long studentId, Long bookId) {
+    public boolean isBookCurrentlyReserved(Long bookId) {
         String sql = """
-            INSERT INTO book_reservation (student_id, book_id)
-            VALUES (?, ?)
+            SELECT COUNT(*)
+            FROM BookReservations
+            WHERE bookId = ? AND returnedAt IS NULL
             """;
 
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        jdbcTemplate.update(connection -> {
-            PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-            statement.setLong(1, studentId);
-            statement.setLong(2, bookId);
-            return statement;
-        }, keyHolder);
-
-        Number generatedId = keyHolder.getKey();
-        if (generatedId == null) {
-            return Optional.empty();
-        }
-
-        return findReservedBookByReservationId(generatedId.longValue());
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, bookId);
+        return count != null && count > 0;
     }
 
-    public List<ReservedBook> findReservedBooksByStudentId(Long studentId) {
+    public int countActiveReservationsByStudentId(Long studentId) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM BookReservations
+            WHERE studentId = ? AND returnedAt IS NULL
+            """;
+
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, studentId);
+        return count == null ? 0 : count;
+    }
+
+    public boolean reserveBook(Long studentId, Long bookId) {
+        String sql = """
+            INSERT INTO BookReservations (studentId, bookId)
+            SELECT ?, ?
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM BookReservations
+                WHERE bookId = ? AND returnedAt IS NULL
+            )
+            """;
+
+        int insertedRows = jdbcTemplate.update(sql, studentId, bookId, bookId);
+
+        return insertedRows > 0;
+    }
+
+    public boolean returnBook(Long studentId, Long reservationId) {
+        String sql = """
+            UPDATE BookReservations
+            SET returnedAt = NOW()
+            WHERE id = ? AND studentId = ? AND returnedAt IS NULL
+            """;
+
+        int updatedRows = jdbcTemplate.update(sql, reservationId, studentId);
+        return updatedRows > 0;
+    }
+
+    public List<ReservedBook> getReservedBooksByStudentId(Long studentId) {
         String sql = """
             SELECT
-                br.id AS reservation_id,
-                b.id AS book_id,
+                br.id AS reservationId,
+                b.id AS bookId,
                 b.title,
                 b.author,
                 b.category,
                 b.description,
-                br.reserved_at,
-                DATE_ADD(DATE(br.reserved_at), INTERVAL 14 DAY) AS due_date,
+                br.dateCreated,
+                br.returnedAt,
+                DATE_ADD(DATE(br.dateCreated), INTERVAL 14 DAY) AS dueDate,
                 CASE
                     WHEN CURRENT_DATE BETWEEN
-                        DATE_SUB(DATE_ADD(DATE(br.reserved_at), INTERVAL 14 DAY), INTERVAL 3 DAY)
-                        AND DATE_ADD(DATE(br.reserved_at), INTERVAL 14 DAY)
+                        DATE_SUB(DATE_ADD(DATE(br.dateCreated), INTERVAL 14 DAY), INTERVAL 3 DAY)
+                        AND DATE_ADD(DATE(br.dateCreated), INTERVAL 14 DAY)
                     THEN 'true'
                     ELSE 'false'
-                END AS near_due_date
-            FROM book_reservation br
-            JOIN book b ON b.id = br.book_id
-            WHERE br.student_id = ?
-            ORDER BY br.reserved_at DESC
+                END AS nearDueDate
+            FROM BookReservations br
+            JOIN Books b ON b.id = br.bookId
+            WHERE br.studentId = ? AND b.isActive = TRUE
+            ORDER BY br.dateCreated DESC
             """;
 
         return jdbcTemplate.query(sql, this::mapRowToReservedBook, studentId);
-    }
-
-    private Optional<ReservedBook> findReservedBookByReservationId(Long reservationId) {
-        String sql = """
-            SELECT
-                br.id AS reservation_id,
-                b.id AS book_id,
-                b.title,
-                b.author,
-                b.category,
-                b.description,
-                br.reserved_at,
-                DATE_ADD(DATE(br.reserved_at), INTERVAL 14 DAY) AS due_date,
-                CASE
-                    WHEN CURRENT_DATE BETWEEN
-                        DATE_SUB(DATE_ADD(DATE(br.reserved_at), INTERVAL 14 DAY), INTERVAL 3 DAY)
-                        AND DATE_ADD(DATE(br.reserved_at), INTERVAL 14 DAY)
-                    THEN 'true'
-                    ELSE 'false'
-                END AS near_due_date
-            FROM book_reservation br
-            JOIN book b ON b.id = br.book_id
-            WHERE br.id = ?
-            """;
-
-        try {
-            ReservedBook reservedBook = jdbcTemplate.queryForObject(sql, this::mapRowToReservedBook, reservationId);
-            return Optional.of(reservedBook);
-        } catch (EmptyResultDataAccessException exception) {
-            return Optional.empty();
-        }
     }
 
     private Book mapRowToBook(java.sql.ResultSet resultSet, int rowNumber) throws java.sql.SQLException {
@@ -241,23 +212,30 @@ public class BookRepository {
             resultSet.getString("title"),
             resultSet.getString("author"),
             resultSet.getString("category"),
-            resultSet.getString("description")
+            resultSet.getString("description"),
+            resultSet.getBoolean("isActive")
         );
     }
 
+    private boolean getActiveValue(Boolean isActive) {
+        return isActive == null || isActive;
+    }
+
     private ReservedBook mapRowToReservedBook(java.sql.ResultSet resultSet, int rowNumber) throws java.sql.SQLException {
-        Timestamp reservedAt = resultSet.getTimestamp("reserved_at");
+        Timestamp dateCreated = resultSet.getTimestamp("dateCreated");
+        Timestamp returnedAt = resultSet.getTimestamp("returnedAt");
 
         return new ReservedBook(
-            resultSet.getLong("reservation_id"),
-            resultSet.getLong("book_id"),
+            resultSet.getLong("reservationId"),
+            resultSet.getLong("bookId"),
             resultSet.getString("title"),
             resultSet.getString("author"),
             resultSet.getString("category"),
             resultSet.getString("description"),
-            reservedAt.toLocalDateTime(),
-            resultSet.getDate("due_date").toLocalDate(),
-            Boolean.parseBoolean(resultSet.getString("near_due_date"))
+            dateCreated.toLocalDateTime(),
+            returnedAt == null ? null : returnedAt.toLocalDateTime(),
+            resultSet.getDate("dueDate").toLocalDate(),
+            Boolean.parseBoolean(resultSet.getString("nearDueDate"))
         );
     }
 }
