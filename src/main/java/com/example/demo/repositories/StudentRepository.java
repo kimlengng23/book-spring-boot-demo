@@ -83,6 +83,50 @@ public class StudentRepository {
         return count != null && count > 0;
     }
 
+    public boolean existsStudentByEmail(String email) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM Students
+            WHERE LOWER(email) = LOWER(?)
+            """;
+
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, email.trim());
+        return count != null && count > 0;
+    }
+
+    public boolean existsStudentByPhone(String phone) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM Students
+            WHERE phone = ?
+            """;
+
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, phone.trim());
+        return count != null && count > 0;
+    }
+
+    public boolean existsStudentByEmailExceptId(String email, Long id) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM Students
+            WHERE LOWER(email) = LOWER(?) AND id <> ?
+            """;
+
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, email.trim(), id);
+        return count != null && count > 0;
+    }
+
+    public boolean existsStudentByPhoneExceptId(String phone, Long id) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM Students
+            WHERE phone = ? AND id <> ?
+            """;
+
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, phone.trim(), id);
+        return count != null && count > 0;
+    }
+
     public Student createStudent(Student student, String passwordHash, String passwordSalt) {
         String sql = """
             INSERT INTO Students (studentNumber, photoFileName, name, phone, email, passwordHash, passwordSalt, isVerified, isActive)
@@ -96,7 +140,7 @@ public class StudentRepository {
             statement.setString(1, student.getStudentNumber().trim());
             statement.setString(2, student.getPhotoFileName());
             statement.setString(3, student.getName());
-            statement.setString(4, student.getPhone());
+            statement.setString(4, student.getPhone().trim());
             statement.setString(5, student.getEmail().toLowerCase().trim());
             statement.setString(6, passwordHash);
             statement.setString(7, passwordSalt);
@@ -123,7 +167,7 @@ public class StudentRepository {
         int updatedRows = jdbcTemplate.update(
             sql,
             student.getName(),
-            student.getPhone(),
+            student.getPhone().trim(),
             student.getEmail().toLowerCase().trim(),
             student.getIsActive(),
             student.getId()

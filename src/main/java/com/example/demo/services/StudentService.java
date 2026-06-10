@@ -32,6 +32,7 @@ public class StudentService {
         "image/jpeg",
         "image/png"
     );
+    private static final Pattern STUDENT_NUMBER_PATTERN = Pattern.compile("^\\d{3,}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^\\d{9,10}$");
 
@@ -65,7 +66,7 @@ public class StudentService {
             registerStudentRequest.getStudentNumber().trim(),
             null,
             registerStudentRequest.getName(),
-            registerStudentRequest.getPhone(),
+            registerStudentRequest.getPhone().trim(),
             email,
             false,
             true
@@ -75,14 +76,20 @@ public class StudentService {
         try {
             return studentRepository.createStudent(student, passwordHash, passwordSalt);
         } catch (DuplicateKeyException exception) {
-            throw new ValidationException(List.of("Student number is already registered."));
+            throw new ValidationException(List.of("Student number, email, or phone is already registered."));
         }
     }
 
     public Optional<Student> updateStudent(Student studentDetails) {
         validateUpdateStudent(studentDetails);
 
-        boolean updated = studentRepository.updateStudent(studentDetails);
+        boolean updated;
+        try {
+            updated = studentRepository.updateStudent(studentDetails);
+        } catch (DuplicateKeyException exception) {
+            throw new ValidationException(List.of("Email or phone is already registered."));
+        }
+
         if (!updated) {
             return Optional.empty();
         }
@@ -96,7 +103,9 @@ public class StudentService {
         validateStudentNumber(registerStudentRequest.getStudentNumber(), true, errors);
         validateStudentNumberIsAvailable(registerStudentRequest.getStudentNumber(), errors);
         validateEmail(registerStudentRequest.getEmail(), errors);
+        validateEmailIsAvailable(registerStudentRequest.getEmail(), errors);
         validatePhone(registerStudentRequest.getPhone(), errors);
+        validatePhoneIsAvailable(registerStudentRequest.getPhone(), errors);
         validatePassword(registerStudentRequest.getPassword(), errors);
 
         throwIfInvalid(errors);
@@ -107,7 +116,9 @@ public class StudentService {
 
         validateStudentNumber(studentDetails.getStudentNumber(), false, errors);
         validateEmail(studentDetails.getEmail(), errors);
+        validateEmailIsAvailableForUpdate(studentDetails.getEmail(), studentDetails.getId(), errors);
         validatePhone(studentDetails.getPhone(), errors);
+        validatePhoneIsAvailableForUpdate(studentDetails.getPhone(), studentDetails.getId(), errors);
 
         throwIfInvalid(errors);
     }
@@ -120,13 +131,13 @@ public class StudentService {
             return;
         }
 
-        if (studentNumber.trim().length() != 3) {
-            errors.add("Student number must be 3 characters long.");
+        if (!STUDENT_NUMBER_PATTERN.matcher(studentNumber.trim()).matches()) {
+            errors.add("Student number must be at least 3 digits long.");
         }
     }
 
     private void validateStudentNumberIsAvailable(String studentNumber, List<String> errors) {
-        if (isBlank(studentNumber) || studentNumber.trim().length() != 3) {
+        if (isBlank(studentNumber) || !STUDENT_NUMBER_PATTERN.matcher(studentNumber.trim()).matches()) {
             return;
         }
 
@@ -146,6 +157,26 @@ public class StudentService {
         }
     }
 
+    private void validateEmailIsAvailable(String email, List<String> errors) {
+        if (isBlank(email) || !EMAIL_PATTERN.matcher(email.trim()).matches()) {
+            return;
+        }
+
+        if (studentRepository.existsStudentByEmail(email)) {
+            errors.add("Email is already registered.");
+        }
+    }
+
+    private void validateEmailIsAvailableForUpdate(String email, Long studentId, List<String> errors) {
+        if (studentId == null || isBlank(email) || !EMAIL_PATTERN.matcher(email.trim()).matches()) {
+            return;
+        }
+
+        if (studentRepository.existsStudentByEmailExceptId(email, studentId)) {
+            errors.add("Email is already registered.");
+        }
+    }
+
     private void validatePhone(String phone, List<String> errors) {
         if (isBlank(phone)) {
             errors.add("Phone is required.");
@@ -154,6 +185,26 @@ public class StudentService {
 
         if (!PHONE_PATTERN.matcher(phone.trim()).matches()) {
             errors.add("Phone must be 9 to 10 digits.");
+        }
+    }
+
+    private void validatePhoneIsAvailable(String phone, List<String> errors) {
+        if (isBlank(phone) || !PHONE_PATTERN.matcher(phone.trim()).matches()) {
+            return;
+        }
+
+        if (studentRepository.existsStudentByPhone(phone)) {
+            errors.add("Phone is already registered.");
+        }
+    }
+
+    private void validatePhoneIsAvailableForUpdate(String phone, Long studentId, List<String> errors) {
+        if (studentId == null || isBlank(phone) || !PHONE_PATTERN.matcher(phone.trim()).matches()) {
+            return;
+        }
+
+        if (studentRepository.existsStudentByPhoneExceptId(phone, studentId)) {
+            errors.add("Phone is already registered.");
         }
     }
 

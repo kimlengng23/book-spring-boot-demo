@@ -15,7 +15,11 @@ CREATE TABLE Students (
     isActive BOOLEAN NOT NULL DEFAULT TRUE,
     dateCreated DATETIME NOT NULL DEFAULT NOW(),
     PRIMARY KEY (id),
-    UNIQUE (studentNumber)
+    CONSTRAINT chk_students_student_number_digits CHECK (studentNumber REGEXP '^[0-9]{3,}$'),
+    CONSTRAINT chk_students_phone_digits CHECK (phone REGEXP '^[0-9]{9,10}$'),
+    UNIQUE KEY uk_students_student_number (studentNumber),
+    UNIQUE KEY uk_students_phone (phone),
+    UNIQUE KEY uk_students_email (email)
 );
 
 CREATE TABLE Books (

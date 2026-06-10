@@ -37,47 +37,19 @@ http://localhost:8080/swagger-ui.html
 
 The app uses `spring.jpa.hibernate.ddl-auto=none`, so tables must exist in MySQL.
 
-To apply the schema to the running MySQL container:
+To apply the schema to or reset the database in the running MySQL container:
 
 ```bash
 docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/schema.sql
-docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/books.sql
 ```
 
-To fully reset the database and re-run the schema:
+To populate dummy book data in the database (make sure there is the database):
 
 ```bash
-docker exec -i book-demo-mysql mysql -u root -ppassword -e "DROP DATABASE IF EXISTS BookAppDemo;"
-docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/schema.sql
 docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/books.sql
 ```
 
 Warning: dropping the database deletes all existing data.
-
-## Run Locally Without Docker
-
-Start MySQL first. If using the Docker MySQL container only:
-
-```bash
-docker compose up -d mysql
-docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/schema.sql
-docker exec -i book-demo-mysql mysql -u root -ppassword < src/main/resources/db/books.sql
-```
-
-Then run the app locally:
-
-```bash
-SPRING_PROFILES_ACTIVE=development \
-DB_HOST=localhost \
-DB_PORT=3307 \
-DB_NAME=BookAppDemo \
-DB_USERNAME=root \
-DB_PASSWORD=password \
-ACCESS_TOKEN_DAYS=3 \
-REFRESH_TOKEN_DAYS=7 \
-STUDENT_PHOTOS_DIR=./uploads/student-photos \
-./mvnw spring-boot:run
-```
 
 ## Build And Check
 
@@ -140,6 +112,9 @@ docker exec -it book-demo-mysql mysql -u root -ppassword BookAppDemo
 ## Notes
 
 - Student photo uploads are stored in the Docker volume `student-photos`.
+- Student numbers must be at least 3 digits long and unique.
+- Emails must use a valid email format and be unique.
+- Phone numbers must be 9 to 10 characters long and unique.
 - Uploaded photos are limited to `10MB`.
 - Only JPEG and PNG photo uploads are accepted.
 - Access token lifespan is set by `ACCESS_TOKEN_DAYS`; development defaults to 3 days.
