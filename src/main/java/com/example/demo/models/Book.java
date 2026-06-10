@@ -16,6 +16,7 @@ public class Book {
     private String author;
     private String category;
     private String description;
+    private Boolean isActive;
 
     public Book() {
     }
@@ -25,13 +26,15 @@ public class Book {
         String title, 
         String author, 
         String category, 
-        String description
+        String description,
+        Boolean isActive
     ) {
         this.id = id;
         this.title = title;
         this.author = author;
         this.category = category;
         this.description = description;
+        this.isActive = isActive;
     }
 
     public Long getId() {
@@ -72,5 +75,13 @@ public class Book {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
     }
 }

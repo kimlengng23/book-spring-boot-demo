@@ -12,6 +12,7 @@ public class ReservedBook {
     private String category;
     private String description;
     private LocalDateTime reservedAt;
+    private LocalDateTime returnedAt;
     private LocalDate dueDate;
     private boolean nearDueDate;
 
@@ -26,6 +27,7 @@ public class ReservedBook {
         String category,
         String description,
         LocalDateTime reservedAt,
+        LocalDateTime returnedAt,
         LocalDate dueDate,
         boolean nearDueDate
     ) {
@@ -36,6 +38,7 @@ public class ReservedBook {
         this.category = category;
         this.description = description;
         this.reservedAt = reservedAt;
+        this.returnedAt = returnedAt;
         this.dueDate = dueDate;
         this.nearDueDate = nearDueDate;
     }
@@ -94,6 +97,14 @@ public class ReservedBook {
 
     public void setReservedAt(LocalDateTime reservedAt) {
         this.reservedAt = reservedAt;
+    }
+
+    public LocalDateTime getReturnedAt() {
+        return returnedAt;
+    }
+
+    public void setReturnedAt(LocalDateTime returnedAt) {
+        this.returnedAt = returnedAt;
     }
 
     public LocalDate getDueDate() {

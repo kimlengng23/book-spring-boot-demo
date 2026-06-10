@@ -2,10 +2,19 @@ package com.example.demo.dtos;
 
 public class RegisterStudentRequest {
 
+    private String studentNumber;
     private String name;
     private String phone;
     private String email;
     private String password;
+
+    public String getStudentNumber() {
+        return studentNumber;
+    }
+
+    public void setStudentNumber(String studentNumber) {
+        this.studentNumber = studentNumber;
+    }
 
     public String getName() {
         return name;

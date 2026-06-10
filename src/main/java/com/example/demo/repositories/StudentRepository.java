@@ -2,10 +2,7 @@ package com.example.demo.repositories;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
-import java.util.List;
 import java.util.Optional;
-
-import jakarta.annotation.PostConstruct;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,59 +22,12 @@ public class StudentRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    @PostConstruct
-    public void createStudentTable() {
+    public Optional<Student> getStudentById(Long id) {
         String sql = """
-            CREATE TABLE IF NOT EXISTS student (
-                id BIGINT NOT NULL AUTO_INCREMENT,
-                photo_file_name VARCHAR(255),
-                name VARCHAR(255) NOT NULL,
-                phone VARCHAR(50),
-                email VARCHAR(255) NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                password_salt VARCHAR(255) NOT NULL,
-                PRIMARY KEY (id),
-                UNIQUE KEY uk_student_email (email)
-            ) ENGINE=InnoDB
-            """;
-
-        jdbcTemplate.execute(sql);
-
-        String addPhotoFileNameSql = """
-            ALTER TABLE student
-            ADD COLUMN IF NOT EXISTS photo_file_name VARCHAR(255)
-            """;
-        jdbcTemplate.execute(addPhotoFileNameSql);
-
-        String addPasswordHashSql = """
-            ALTER TABLE student
-            ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) NOT NULL DEFAULT ''
-            """;
-        jdbcTemplate.execute(addPasswordHashSql);
-
-        String addPasswordSaltSql = """
-            ALTER TABLE student
-            ADD COLUMN IF NOT EXISTS password_salt VARCHAR(255) NOT NULL DEFAULT ''
-            """;
-        jdbcTemplate.execute(addPasswordSaltSql);
-    }
-
-    public List<Student> findAll() {
-        String sql = """
-            SELECT id, photo_file_name, name, phone, email
-            FROM student
-            ORDER BY id
-            """;
-
-        return jdbcTemplate.query(sql, this::mapRowToStudent);
-    }
-
-    public Optional<Student> findById(Long id) {
-        String sql = """
-            SELECT id, photo_file_name, name, phone, email
-            FROM student
-            WHERE id = ?
-            """;
+            SELECT id, studentNumber, photoFileName, name, phone, email, isActive
+            FROM Students
+            WHERE id = ? AND isActive = TRUE
+        """;
 
         try {
             Student student = jdbcTemplate.queryForObject(sql, this::mapRowToStudent, id);
@@ -87,12 +37,12 @@ public class StudentRepository {
         }
     }
 
-    public Optional<Student> findByEmail(String email) {
+    public Optional<Student> getStudentByEmail(String email) {
         String sql = """
-            SELECT id, photo_file_name, name, phone, email
-            FROM student
-            WHERE email = ?
-            """;
+            SELECT id, studentNumber, photoFileName, name, phone, email, isActive
+            FROM Students
+            WHERE email = ? AND isActive = TRUE
+        """;
 
         try {
             Student student = jdbcTemplate.queryForObject(sql, this::mapRowToStudent, email.toLowerCase().trim());
@@ -102,41 +52,43 @@ public class StudentRepository {
         }
     }
 
-    public Optional<StudentAuthData> findAuthDataByEmail(String email) {
+    public Optional<StudentAuthData> getAuthDataByStudentNumber(String studentNumber) {
         String sql = """
-            SELECT id, password_hash, password_salt
-            FROM student
-            WHERE email = ?
+            SELECT id, passwordHash, passwordSalt
+            FROM Students
+            WHERE studentNumber = ? AND isActive = TRUE
             """;
 
         try {
             StudentAuthData authData = jdbcTemplate.queryForObject(sql, (resultSet, rowNumber) -> new StudentAuthData(
                 resultSet.getLong("id"),
-                resultSet.getString("password_hash"),
-                resultSet.getString("password_salt")
-            ), email.toLowerCase().trim());
+                resultSet.getString("passwordHash"),
+                resultSet.getString("passwordSalt")
+            ), studentNumber.trim());
             return Optional.of(authData);
         } catch (EmptyResultDataAccessException exception) {
             return Optional.empty();
         }
     }
 
-    public Student save(Student student, String passwordHash, String passwordSalt) {
+    public Student createStudent(Student student, String passwordHash, String passwordSalt) {
         String sql = """
-            INSERT INTO student (photo_file_name, name, phone, email, password_hash, password_salt)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO Students (studentNumber, photoFileName, name, phone, email, passwordHash, passwordSalt, isActive)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-            statement.setString(1, student.getPhotoFileName());
-            statement.setString(2, student.getName());
-            statement.setString(3, student.getPhone());
-            statement.setString(4, student.getEmail().toLowerCase().trim());
-            statement.setString(5, passwordHash);
-            statement.setString(6, passwordSalt);
+            statement.setString(1, student.getStudentNumber().trim());
+            statement.setString(2, student.getPhotoFileName());
+            statement.setString(3, student.getName());
+            statement.setString(4, student.getPhone());
+            statement.setString(5, student.getEmail().toLowerCase().trim());
+            statement.setString(6, passwordHash);
+            statement.setString(7, passwordSalt);
+            statement.setBoolean(8, getActiveValue(student.getIsActive()));
             return statement;
         }, keyHolder);
 
@@ -148,11 +100,11 @@ public class StudentRepository {
         return student;
     }
 
-    public boolean update(Long id, Student student) {
+    public boolean updateStudent(Student student) {
         String sql = """
-            UPDATE student
-            SET photo_file_name = ?, name = ?, phone = ?, email = ?
-            WHERE id = ?
+            UPDATE Students
+            SET photoFileName = ?, name = ?, phone = ?, email = ?, isActive = COALESCE(?, isActive)
+            WHERE id = ? AND isActive = TRUE
             """;
 
         int updatedRows = jdbcTemplate.update(
@@ -161,7 +113,8 @@ public class StudentRepository {
             student.getName(),
             student.getPhone(),
             student.getEmail().toLowerCase().trim(),
-            id
+            student.getIsActive(),
+            student.getId()
         );
 
         return updatedRows > 0;
@@ -169,32 +122,28 @@ public class StudentRepository {
 
     public boolean updatePhotoFileName(Long id, String photoFileName) {
         String sql = """
-            UPDATE student
-            SET photo_file_name = ?
-            WHERE id = ?
+            UPDATE Students
+            SET photoFileName = ?
+            WHERE id = ? AND isActive = TRUE
             """;
 
         int updatedRows = jdbcTemplate.update(sql, photoFileName, id);
         return updatedRows > 0;
     }
 
-    public boolean deleteById(Long id) {
-        String sql = """
-            DELETE FROM student
-            WHERE id = ?
-            """;
-
-        int deletedRows = jdbcTemplate.update(sql, id);
-        return deletedRows > 0;
-    }
-
     private Student mapRowToStudent(java.sql.ResultSet resultSet, int rowNumber) throws java.sql.SQLException {
         return new Student(
             resultSet.getLong("id"),
-            resultSet.getString("photo_file_name"),
+            resultSet.getString("studentNumber"),
+            resultSet.getString("photoFileName"),
             resultSet.getString("name"),
             resultSet.getString("phone"),
-            resultSet.getString("email")
+            resultSet.getString("email"),
+            resultSet.getBoolean("isActive")
         );
+    }
+
+    private boolean getActiveValue(Boolean isActive) {
+        return isActive == null || isActive;
     }
 }

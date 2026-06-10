@@ -2,15 +2,15 @@ package com.example.demo.dtos;
 
 public class LoginRequest {
 
-    private String email;
+    private String studentNumber;
     private String password;
 
-    public String getEmail() {
-        return email;
+    public String getStudentNumber() {
+        return studentNumber;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
+    public void setStudentNumber(String studentNumber) {
+        this.studentNumber = studentNumber;
     }
 
     public String getPassword() {

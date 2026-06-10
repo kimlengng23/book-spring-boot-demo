@@ -22,7 +22,7 @@ public class AuthService {
     }
 
     public Optional<AuthResponse> login(LoginRequest loginRequest) {
-        return studentRepository.findAuthDataByEmail(loginRequest.getEmail())
+        return studentRepository.getAuthDataByStudentNumber(loginRequest.getStudentNumber())
             .filter(authData -> passwordMatches(loginRequest.getPassword(), authData))
             .map(authData -> tokenService.issueTokens(authData.getStudentId()));
     }

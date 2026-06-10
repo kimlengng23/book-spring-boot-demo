@@ -5,34 +5,40 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
-//Student: ID, 1 portrait photo, name, phone number, email.
+//Student: ID, student number, 1 portrait photo, name, phone number, email.
 @Entity
 public class Student {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private String studentNumber;
     private String photoFileName;
     private String name;
     private String phone;
     private String email;
     private String passwordHash;
     private String passwordSalt;
+    private Boolean isActive;
 
     public Student() {
     }
 
     public Student(
-        Long id, 
+        Long id,
+        String studentNumber,
         String photoFileName, 
         String name, 
         String phone, 
-        String email) {
+        String email,
+        Boolean isActive) {
         this.id = id;
+        this.studentNumber = studentNumber;
         this.photoFileName = photoFileName;
         this.name = name;
         this.phone = phone;
         this.email = email;
+        this.isActive = isActive;
     }
 
     public Long getId() {
@@ -41,6 +47,14 @@ public class Student {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getStudentNumber() {
+        return studentNumber;
+    }
+
+    public void setStudentNumber(String studentNumber) {
+        this.studentNumber = studentNumber;
     }
 
     public String getPhotoFileName() {
@@ -73,5 +87,13 @@ public class Student {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
     }
 }

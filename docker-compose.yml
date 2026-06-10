@@ -4,7 +4,7 @@ services:
     container_name: book-demo-mysql
     environment:
       MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: demo
+      MYSQL_DATABASE: BookAppDemo
     ports:
       - "3307:3306"
     volumes:
@@ -21,17 +21,39 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      reservation-report-service:
+        condition: service_started
     environment:
+      SPRING_PROFILES_ACTIVE: development
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_NAME: demo
+      DB_NAME: BookAppDemo
       DB_USERNAME: root
       DB_PASSWORD: password
       STUDENT_PHOTOS_DIR: /app/uploads/student-photos
+      RESERVATION_REPORT_SERVICE_URL: http://reservation-report-service:8081
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
     ports:
       - "8080:8080"
+      - "5005:5005"
     volumes:
       - student-photos:/app/uploads/student-photos
+
+  reservation-report-service:
+    build: ./reservation-report-service
+    container_name: book-demo-reservation-report-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: development
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: BookAppDemo
+      DB_USERNAME: root
+      DB_PASSWORD: password
+    ports:
+      - "8081:8081"
 
 volumes:
   mysql-data:
