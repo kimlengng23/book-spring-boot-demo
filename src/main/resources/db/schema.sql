@@ -11,6 +11,7 @@ CREATE TABLE Students (
     email VARCHAR(255) NOT NULL,
     passwordHash VARCHAR(255) NOT NULL,
     passwordSalt VARCHAR(255) NOT NULL,
+    isVerified BOOLEAN NOT NULL DEFAULT FALSE,
     isActive BOOLEAN NOT NULL DEFAULT TRUE,
     dateCreated DATETIME NOT NULL DEFAULT NOW(),
     PRIMARY KEY (id),

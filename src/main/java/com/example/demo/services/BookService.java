@@ -46,25 +46,27 @@ public class BookService {
         return bookRepository.deleteBookById(id);
     }
 
-    public boolean reserveBook(Long studentId, Long bookId) {
+    public ReservationResult reserveBook(Long studentId, Long bookId) {
         if (!bookRepository.existsStudentById(studentId) || !bookRepository.existsBookById(bookId)) {
-            return false;
-        }
-
-        if (bookRepository.isBookCurrentlyReserved(bookId)) {
-            return false;
+            return new ReservationResult(ReservationStatus.NOT_FOUND, null);
         }
 
         if (bookRepository.countActiveReservationsByStudentId(studentId) >= MAX_ACTIVE_RESERVATIONS_PER_STUDENT) {
-            return false;
+            return new ReservationResult(ReservationStatus.LIMIT_REACHED, null);
         }
 
-        return bookRepository.reserveBook(studentId, bookId);
+        if (bookRepository.isBookCurrentlyReserved(bookId)) {
+            return new ReservationResult(ReservationStatus.BOOK_ALREADY_RESERVED, null);
+        }
+
+        return bookRepository.reserveBook(studentId, bookId)
+            .map(reservation -> new ReservationResult(ReservationStatus.SUCCESS, reservation))
+            .orElse(new ReservationResult(ReservationStatus.BOOK_ALREADY_RESERVED, null));
     }
 
-    public boolean returnBook(Long studentId, Long reservationId) {
+    public Optional<ReservedBook> returnBook(Long studentId, Long reservationId) {
         if (!bookRepository.existsStudentById(studentId)) {
-            return false;
+            return Optional.empty();
         }
 
         return bookRepository.returnBook(studentId, reservationId);
@@ -72,5 +74,15 @@ public class BookService {
 
     public List<ReservedBook> getReservedBooksByStudentId(Long studentId) {
         return bookRepository.getReservedBooksByStudentId(studentId);
+    }
+
+    public record ReservationResult(ReservationStatus status, ReservedBook reservation) {
+    }
+
+    public enum ReservationStatus {
+        SUCCESS,
+        NOT_FOUND,
+        LIMIT_REACHED,
+        BOOK_ALREADY_RESERVED
     }
 }
